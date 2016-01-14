@@ -1,0 +1,8 @@
+{
+  "name": "filerun/api-client",
+  "autoload": {
+	"psr-0" : {
+	  "filerun\\api-client" : "src"
+	}
+  }
+}
