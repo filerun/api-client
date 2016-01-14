@@ -1,5 +1,5 @@
 <?php
-namespace FileRun\API\Client;
+namespace FileRun\API;
 
 class Client {
 
