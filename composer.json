@@ -13,8 +13,13 @@
   },
   "minimum-stability": "dev",
   "autoload": {
-	"psr-0" : {
+	"psr-4" : {
 	  "FileRun\\API\\Client" : "src"
+	}
+  },
+  "extra": {
+	"branch-alias": {
+	  "dev-master": "1.0.x-dev"
 	}
   }
 }
