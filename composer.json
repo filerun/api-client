@@ -1,5 +1,16 @@
 {
   "name": "filerun/api-client",
+  "description": "FileRun API Client Library",
+  "authors": [
+	{
+	  "name": "Vlad Roman",
+	  "email": "vlad.roman@filerun.com"
+	}
+  ],
+  "require": {
+	"php": ">=5.5.0"
+  },
+  "minimum-stability": "dev",
   "autoload": {
 	"psr-0" : {
 	  "filerun\\api-client" : "src"
