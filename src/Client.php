@@ -2,7 +2,7 @@
 namespace FileRun\API;
 
 use GuzzleHttp\Client as HttpClient;
-use GuzzleHttp\ClientInterface as HttpClientInterface;
+use GuzzleHttp\Exception\RequestException;
 
 class Client {
 	private $url;
@@ -11,6 +11,11 @@ class Client {
 	private $client_secret;
 	private $username;
 	private $password;
+	private $error;
+	private $scope;//OAuth2 scope
+	private $access_token;//the OAuth2 access token
+	private $http;//the Guzzle HTTP Client
+	public $debug = false;
 
 	public function __construct(array $options = [], array $collaborators = []) {
 		foreach ($options as $option => $value) {
@@ -18,34 +23,110 @@ class Client {
 				$this->{$option} = $value;
 			}
 		}
+		$this->http = new HttpClient();
 	}
 	public function connect() {
-		$http = new HttpClient();
 		try {
-			$req = $http->post($this->url.'/oauth2/token/',
+			$response = $this->http->request('POST', $this->url.'/oauth2/token/',
 				array(
-					'client_id' => $this->client_id,
-					'client_secret' => $this->client_secret,
-					'username' => $this->username,
-					'password' => $this->password,
-					'redirect_uri' => $this->redirect_uri,
-					'grant_type' => 'password'
+					'form_params' =>
+						array(
+							'client_id' => $this->client_id,
+							'client_secret' => $this->client_secret,
+							'username' => $this->username,
+							'password' => $this->password,
+							'redirect_uri' => 'http://localhost', //$this->redirect_uri,
+							'grant_type' => 'password',
+							'scope' => implode(' ', $this->scope)
+						)
 				));
-			$response = $req->send();
-		} catch (\GuzzleHttp\Exception\BadResponseException $e) {
-			echo 'Bad server response: '.$e->getResponse()->getStatusCode();
-			echo $e->getResponse();
-			exit();
-		} catch (\GuzzleHttp\Exception\CurlException $e) {
-			echo 'Connection failed: '.$e->getErrorNo();
-			echo $e->getMessage();
-			exit();
-		}
-		if ($response->isSuccessful()) {
-			$rs = $response->json();
-			print_r($rs);
-			return true;
+		} catch (RequestException $e) {
+			$this->error =  $e->getMessage();
+			return false;
 		}
 
+		if ($response) {
+			$rs = json_decode($response->getBody()->getContents());
+			if (is_object($rs) && $rs->access_token) {
+				$this->access_token = $rs->access_token;
+				return true;
+			}
+		}
+	}
+	private function callAPI($path, $method = 'GET', $opts = [], $raw = false) {
+		try {
+			$p = [
+				'headers' => [
+					'Authorization' => 'Bearer '.$this->access_token
+				]
+			];
+			if (sizeof($opts) > 0) {
+				$p = array_merge($p, $opts);
+			}
+			$response = $this->http->request($method, $this->url.'/api.php'.$path, $p);
+
+		} catch (RequestException $e) {
+			$this->error =  $e->getMessage();
+			return false;
+		}
+
+		if ($response) {
+			$contents = $response->getBody()->getContents();
+			if ($raw) {
+				return $contents;
+			}
+			$decoded = json_decode($contents, true);
+			if (is_null($decoded)) {
+				if ($this->debug) {
+					echo $contents;
+				}
+				return false;
+			}
+			if (array_key_exists('success', $decoded) && !$decoded['success']) {
+				$this->error = $decoded['error'];
+			}
+			return $decoded;
+		}
+	}
+	public function getError() {
+		return $this->error;
+	}
+	public function getUserInfo() {
+		return $this->callAPI('/account/info', 'GET');
+	}
+	public function getFileList($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/browse/', 'POST', $opts);
+	}
+	public function searchFiles($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/search/', 'POST', $opts);
+	}
+	public function uploadFile($params, $fileSource) {
+		$opts = [
+			'multipart' => [
+				[
+					'name' => 'file',
+					'filename' => 'filename.txt',
+					'contents' => $fileSource
+				]
+			]
+		];
+		foreach($params as $k => $v) {
+			$opts['multipart'][] = ['name' => $k,  'contents' => $v];
+		}
+		return $this->callAPI('/files/upload/', 'POST', $opts);
+	}
+	public function downloadFile($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/download/', 'POST', $opts, true);
+	}
+	public function getWebLink($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/weblink/', 'POST', $opts);
+	}
+	public function deleteFile($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/delete/', 'POST', $opts);
 	}
 }
