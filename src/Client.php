@@ -129,4 +129,12 @@ class Client {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/delete/', 'POST', $opts);
 	}
+	public function shareFolder($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/share/', 'POST', $opts);
+	}
+	public function unShareFolder($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/unshare/', 'POST', $opts);
+	}
 }
