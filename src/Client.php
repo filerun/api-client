@@ -35,7 +35,7 @@ class Client {
 							'client_secret' => $this->client_secret,
 							'username' => $this->username,
 							'password' => $this->password,
-							'redirect_uri' => 'http://localhost', //$this->redirect_uri,
+							'redirect_uri' => $this->redirect_uri,
 							'grant_type' => 'password',
 							'scope' => implode(' ', $this->scope)
 						)
@@ -101,6 +101,10 @@ class Client {
 	public function searchFiles($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/search/', 'POST', $opts);
+	}
+	public function createFolder($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/createfolder/', 'POST', $opts);
 	}
 	public function uploadFile($params, $fileSource) {
 		$opts = [
