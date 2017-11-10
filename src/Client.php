@@ -6,7 +6,6 @@ use GuzzleHttp\Exception\RequestException;
 
 class Client {
 	private $url;
-	private $redirect_uri;
 	private $client_id;
 	private $client_secret;
 	private $username;
@@ -17,7 +16,7 @@ class Client {
 	private $http;//the Guzzle HTTP Client
 	public $debug = false;
 
-	public function __construct(array $options = [], array $collaborators = []) {
+	public function __construct(array $options = []) {
 		foreach ($options as $option => $value) {
 			if (property_exists($this, $option)) {
 				$this->{$option} = $value;
@@ -28,9 +27,9 @@ class Client {
 	public function connect() {
 		try {
 			$response = $this->http->request('POST', $this->url.'/oauth2/token/',
-				array(
+				[
 					'form_params' =>
-						array(
+						[
 							'client_id' => $this->client_id,
 							'client_secret' => $this->client_secret,
 							'username' => $this->username,
@@ -38,27 +37,41 @@ class Client {
 							'redirect_uri' => 'http://localhost', //$this->redirect_uri,
 							'grant_type' => 'password',
 							'scope' => implode(' ', $this->scope)
-						)
-				));
+						],
+					'verify' => false
+				]);
 		} catch (RequestException $e) {
 			$this->error =  $e->getMessage();
 			return false;
 		}
-
-		if ($response) {
-			$rs = json_decode($response->getBody()->getContents());
-			if (is_object($rs) && $rs->access_token) {
-				$this->access_token = $rs->access_token;
-				return true;
-			}
+		if (!$response) {
+			$this->error = 'Unexpected empty server response';
+			return false;
 		}
+		$responseBody = $response->getBody()->getContents();
+		$rs = json_decode($responseBody);
+		if (!is_object($rs)) {
+			$this->error = 'Unexpected server response: '.$responseBody;
+			return false;
+		}
+		if (isset($rs->error)) {
+			$this->error = 'Server error: '.$rs->message;
+			return false;
+		}
+		if (!$rs->access_token) {
+			$this->error = 'Missing access token';
+			return false;
+		}
+		$this->access_token = $rs->access_token;
+		return true;
 	}
 	private function callAPI($path, $method = 'GET', $opts = [], $raw = false) {
 		try {
 			$p = [
 				'headers' => [
 					'Authorization' => 'Bearer '.$this->access_token
-				]
+				],
+				'verify' => false
 			];
 			if (sizeof($opts) > 0) {
 				$p = array_merge($p, $opts);
@@ -66,41 +79,59 @@ class Client {
 			$response = $this->http->request($method, $this->url.'/api.php'.$path, $p);
 
 		} catch (RequestException $e) {
-			$this->error =  $e->getMessage();
+			$this->error = $e->getResponse()->getBody()->getContents();
 			return false;
 		}
-
-		if ($response) {
-			$contents = $response->getBody()->getContents();
-			if ($raw) {
-				return $contents;
-			}
-			$decoded = json_decode($contents, true);
-			if (is_null($decoded)) {
-				if ($this->debug) {
-					echo $contents;
-				}
-				return false;
-			}
-			if (array_key_exists('success', $decoded) && !$decoded['success']) {
-				$this->error = $decoded['error'];
-			}
-			return $decoded;
+		if (!$response) {
+			$this->error = 'Empty server response';
+			return false;
 		}
+		$contents = $response->getBody()->getContents();
+		if ($raw) {
+			return $contents;
+		}
+		$decoded = json_decode($contents, true);
+		if (is_null($decoded)) {
+			if ($this->debug) {
+				echo $contents;
+			}
+			$this->error = 'Failed to decode JSON server response.';
+			return false;
+		}
+		if (array_key_exists('success', $decoded) && !$decoded['success']) {
+			$this->error = $decoded['error'];
+		}
+		return $decoded;
+
 	}
 	public function getError() {
 		return $this->error;
 	}
-	public function getUserInfo() {
+	public function getUserInfo($uid = false, $username = false) {
+		if ($uid || $username) {
+			if ($uid) {
+				$opts = ['form_params' => ['UID' => $uid]];
+			} else {
+				$opts = ['form_params' => ['uname' => $username]];
+			}
+			return $this->callAPI('/admin-users/info', 'POST', $opts);
+		}
 		return $this->callAPI('/account/info', 'GET');
 	}
-	public function getFileList($params) {
+	public function getAvatar() {
+		return $this->callAPI('/account/avatar/', 'GET', [], true);
+	}
+	public function getFolderList($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/browse/', 'POST', $opts);
 	}
 	public function searchFiles($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/search/', 'POST', $opts);
+	}
+	public function createFolder($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/createfolder/', 'POST', $opts);
 	}
 	public function uploadFile($params, $fileSource) {
 		$opts = [
@@ -121,20 +152,56 @@ class Client {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/download/', 'POST', $opts, true);
 	}
-	public function getWebLink($params) {
+	public function downloadThumbnail($params) {
 		$opts = ['form_params' => $params];
-		return $this->callAPI('/files/weblink/', 'POST', $opts);
+		return $this->callAPI('/files/thumbnail/', 'POST', $opts, true);
 	}
-	public function deleteFile($params) {
+	public function rename($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/rename/', 'POST', $opts);
+	}
+	public function delete($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/delete/', 'POST', $opts);
 	}
-	public function shareFolder($params) {
+	public function share($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/share/', 'POST', $opts);
 	}
-	public function unShareFolder($params) {
+	public function unshare($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/files/unshare/', 'POST', $opts);
+	}
+	public function weblink($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/weblink/', 'POST', $opts);
+	}
+	public function star($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/star/', 'POST', $opts);
+	}
+	public function unstar($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/unstar/', 'POST', $opts);
+	}
+	public function getMetadata($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/files/metadata/', 'POST', $opts);
+	}
+
+	public function addUser($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/admin-users/add', 'POST', $opts);
+	}
+	public function deleteUsers($uids) {
+		$opts = ['form_params' => ['UIDS' => $uids]];
+		return $this->callAPI('/admin-users/delete', 'POST', $opts);
+	}
+	public function deleteUser($uid) {
+		return $this->deleteUsers([$uid]);
+	}
+	public function getUserAvatar($uid = false) {
+		$opts = ['form_params' => ['UID' => $uid]];
+		return $this->callAPI('/admin-users/avatar/', 'POST', $opts, true);
 	}
 }
