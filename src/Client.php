@@ -65,6 +65,13 @@ class Client {
 		$this->access_token = $rs->access_token;
 		return true;
 	}
+	public function getAccessToken() {
+		return $this->access_token;
+	}
+	public function setAccessToken($token) {
+		$this->access_token = $token;
+		return true;
+	}
 	private function callAPI($path, $method = 'GET', $opts = [], $raw = false) {
 		try {
 			$p = [
@@ -192,6 +199,10 @@ class Client {
 	public function addUser($params) {
 		$opts = ['form_params' => $params];
 		return $this->callAPI('/admin-users/add', 'POST', $opts);
+	}
+	public function editUser($params) {
+		$opts = ['form_params' => $params];
+		return $this->callAPI('/admin-users/edit', 'POST', $opts);
 	}
 	public function deleteUsers($uids) {
 		$opts = ['form_params' => ['UIDS' => $uids]];
