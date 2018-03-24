@@ -6,6 +6,7 @@ use GuzzleHttp\Exception\RequestException;
 
 class Client {
 	private $url;
+	private $redirect_uri = 'http://localhost';
 	private $client_id;
 	private $client_secret;
 	private $username;
@@ -34,7 +35,7 @@ class Client {
 							'client_secret' => $this->client_secret,
 							'username' => $this->username,
 							'password' => $this->password,
-							'redirect_uri' => 'http://localhost', //$this->redirect_uri,
+							'redirect_uri' => $this->redirect_uri,
 							'grant_type' => 'password',
 							'scope' => implode(' ', $this->scope)
 						],
