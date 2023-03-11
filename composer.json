@@ -8,8 +8,8 @@
 	}
   ],
   "require": {
-	"guzzlehttp/guzzle": "~6.1",
-	"php": ">=5.5.0"
+	"guzzlehttp/guzzle": "~7.5.0",
+	"php": ">=7.4.0"
   },
   "minimum-stability": "dev",
   "autoload": {
