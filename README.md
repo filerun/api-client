@@ -15,4 +15,5 @@ composer require filerun/api-client:dev-master
 See file ``test.php``
 
 [FileRun]:http://www.filerun.com
-[documentation]:http://docs.filerun.com/index.php/API
+[documentation]:http://docs.filerun.com/API
+
