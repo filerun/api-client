@@ -3,8 +3,8 @@
   "description": "FileRun API Client Library",
   "authors": [
 	{
-	  "name": "Vlad Roman",
-	  "email": "vlad.roman@filerun.com"
+	  "name": "FileRun Lda",
+	  "email": "info@filerun.com"
 	}
   ],
   "require": {
